@@ -1,6 +1,6 @@
 # Overview
 
-This is a Flask-based Leave Management System designed for United India Insurance Company Limited. The application digitizes an Excel-based leave tracking system, allowing employees to view their leave summaries and administrators to manage user data and upload CSV files. The system calculates leave balances based on complex business rules that mirror the original VBA logic from Excel.
+This is a Flask-based Leave Management System designed . The application digitizes an Excel-based leave tracking system, allowing employees to view their leave summaries and administrators to manage user data and upload CSV files. The system calculates leave balances based on complex business rules that mirror the original VBA logic from Excel.
 
 # Recent Changes
 

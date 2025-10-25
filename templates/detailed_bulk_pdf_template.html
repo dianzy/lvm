@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Detailed Bulk Leave Report</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 11px; 
+            margin: 0; 
+            padding: 15px;
+            line-height: 1.3;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .employee-section {
+            margin-bottom: 30px;
+            page-break-after: always;
+            page-break-inside: avoid;
+        }
+        .employee-header {
+            background-color: #2c5aa0;
+            color: white;
+            padding: 12px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .info-box {
+            flex: 1;
+            margin-right: 10px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .info-box:last-child {
+            margin-right: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 4px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            font-size: 9px;
+        }
+        .balance-table th {
+            background-color: #e3f2fd;
+        }
+        .leave-table th {
+            background-color: #f3e5f5;
+        }
+        .negative {
+            color: red;
+            font-weight: bold;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .section-title {
+            font-weight: bold;
+            margin: 15px 0 8px 0;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 3px;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 10px;
+        }
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0;
+            font-size: 10px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 5px;
+        }
+        .leave-type-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 8px;
+            font-weight: bold;
+        }
+        .pl-badge { background-color: #007bff; color: white; }
+        .cl-badge { background-color: #28a745; color: white; }
+        .sl-badge { background-color: #ffc107; color: black; }
+        .lop-badge { background-color: #dc3545; color: white; }
+        .rh-badge { background-color: #6c757d; color: white; }
+        .mat-badge { background-color: #17a2b8; color: white; }
+        .enc-badge { background-color: #343a40; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Detailed Bulk Leave Report</h1>
+        <p><strong>As on Date:</strong> {{ as_on_date }}</p>
+        <p><strong>Generated on:</strong> {{ generated_on }}</p>
+        <p><strong>Total Employees:</strong> {{ detailed_results|length }}</p>
+    </div>
+
+    {% for emp_data in detailed_results %}
+    <div class="employee-section">
+        <!-- Employee Header -->
+        <div class="employee-header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>{{ loop.index }}. {{ emp_data.emp_name }} ({{ emp_data.emp_no }})</strong>
+                    <div style="font-size: 0.9em; font-weight: normal;">{{ emp_data.emp_status }} | DOJ: {{ emp_data.doj }}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div>As on: {{ emp_data.as_on_date }}</div>
+                    <div>{{ emp_data.leave_details|length }} Leave Entries</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Balance Summary -->
+        <div class="info-row">
+            <div class="info-box">
+                <div class="section-title">Opening Balances</div>
+                <table class="balance-table">
+                    <tr>
+                        <td><strong>PL:</strong></td>
+                        <td>
+                            {% if emp_data.opening_balances.pl_part > 0 %}
+                                {{ emp_data.opening_balances.pl }} + {{ emp_data.opening_balances.pl_part }}/11
+                            {% else %}
+                                {{ emp_data.opening_balances.pl }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>{{ emp_data.opening_balances.cl_label[:8] }}:</strong></td>
+                        <td>{{ emp_data.opening_balances.cl }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>SL:</strong></td>
+                        <td>{{ emp_data.opening_balances.sl }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>RH:</strong></td>
+                        <td>{{ emp_data.opening_balances.rh }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="info-box">
+                <div class="section-title">Used Balances</div>
+                <table class="balance-table">
+                    <tr>
+                        <td><strong>PL Used:</strong></td>
+                        <td>{{ emp_data.used_balances.pl }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CL Used:</strong></td>
+                        <td>{{ emp_data.used_balances.cl }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>SL Used:</strong></td>
+                        <td>{{ emp_data.used_balances.sl }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>RH Used:</strong></td>
+                        <td>{{ emp_data.used_balances.rh }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="info-box">
+                <div class="section-title">Closing Balances</div>
+                <table class="balance-table">
+                    <tr>
+                        <td><strong>PL:</strong></td>
+                        <td class="{% if emp_data.closing_balances.pl < 0 %}negative{% endif %}">
+                            {% if emp_data.closing_balances.pl_part > 0 %}
+                                {{ emp_data.closing_balances.pl }} + {{ emp_data.closing_balances.pl_part }}/11
+                            {% else %}
+                                {{ emp_data.closing_balances.pl }}
+                            {% endif %}
+                            {% if emp_data.closing_balances.pl < 0 %} (NEG){% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>CL:</strong></td>
+                        <td class="{% if emp_data.closing_balances.cl < 0 %}negative{% endif %}">
+                            {{ emp_data.closing_balances.cl }}
+                            {% if emp_data.closing_balances.cl < 0 %} (NEG){% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>SL:</strong></td>
+                        <td class="{% if emp_data.closing_balances.sl < 0 %}negative{% endif %}">
+                            {{ emp_data.closing_balances.sl }}
+                            {% if emp_data.closing_balances.sl < 0 %} (NEG){% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>RH:</strong></td>
+                        <td class="{% if emp_data.closing_balances.rh < 0 %}negative{% endif %}">
+                            {{ emp_data.closing_balances.rh }}
+                            {% if emp_data.closing_balances.rh < 0 %} (NEG){% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Other Details -->
+        <div class="summary-stats">
+            <div class="stat-item">
+                <strong>Accrued PL</strong><br>
+                {% if emp_data.other_details.accrued_pl_part > 0 %}
+                    {{ emp_data.other_details.accrued_pl_full }} + {{ emp_data.other_details.accrued_pl_part }}/11
+                {% else %}
+                    {{ emp_data.other_details.accrued_pl_full }}
+                {% endif %}
+            </div>
+            <div class="stat-item">
+                <strong>LOP Days</strong><br>
+                {{ emp_data.other_details.lop_days }}
+            </div>
+            <div class="stat-item">
+                <strong>Maternity</strong><br>
+                {{ emp_data.other_details.mat_leave }}
+            </div>
+            <div class="stat-item">
+                <strong>Encashments</strong><br>
+                {{ emp_data.other_details.encashments }}
+            </div>
+        </div>
+
+        <!-- Leave Details Table -->
+        {% if emp_data.leave_details|length > 0 %}
+        <div class="section-title">📋 Complete Leave History ({{ emp_data.leave_details|length }} entries) - Date Ascending Order</div>
+        <table class="leave-table">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">S.No</th>
+                    <th style="width: 12%;">From Date</th>
+                    <th style="width: 12%;">To Date</th>
+                    <th style="width: 8%;">Session</th>
+                    <th style="width: 10%;">Type</th>
+                    <th style="width: 8%;">SL Type</th>
+                    <th style="width: 7%;">Days</th>
+                    <th style="width: 37%;">Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in emp_data.leave_details %}
+                <tr>
+                    <td class="text-center">{{ leave.sl_no }}</td>
+                    <td>{{ leave.lv_from }}</td>
+                    <td>{{ leave.lv_to or '-' }}</td>
+                    <td class="text-center">{{ leave.session or '-' }}</td>
+                    <td>
+                        <span class="leave-type-badge 
+                            {% if leave.type == 'PL' %}pl-badge
+                            {% elif leave.type in ['CL', 'CL_HALFDAY'] %}cl-badge
+                            {% elif leave.type in ['SL_FP', 'SL_HP', 'S'] %}sl-badge
+                            {% elif leave.type == 'L' %}lop-badge
+                            {% elif leave.type == 'RH' %}rh-badge
+                            {% elif leave.type == 'M' %}mat-badge
+                            {% elif leave.type == 'E' %}enc-badge
+                            {% else %}rh-badge{% endif %}">
+                            {{ leave.type }}
+                        </span>
+                    </td>
+                    <td class="text-center">{{ leave.sl_type or '-' }}</td>
+                    <td class="text-center"><strong>{{ leave.days }}</strong></td>
+                    <td style="font-size: 9px;">{{ leave.reason or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Leave Summary Footer -->
+        <div style="background-color: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div><strong>PL Used:</strong> {{ emp_data.used_balances.pl }}</div>
+                <div><strong>CL Used:</strong> {{ emp_data.used_balances.cl }}</div>
+                <div><strong>SL Used:</strong> {{ emp_data.used_balances.sl }}</div>
+                <div><strong>RH Used:</strong> {{ emp_data.used_balances.rh }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="no-data">
+            ✅ No leave entries found for this employee.
+        </div>
+        {% endif %}
+
+        <!-- Negative Balance Warning -->
+        {% set has_negative = (emp_data.closing_balances.pl < 0) or (emp_data.closing_balances.cl < 0) or (emp_data.closing_balances.sl < 0) or (emp_data.closing_balances.rh < 0) %}
+        {% if has_negative %}
+        <div style="background-color: #ffe6e6; border: 1px solid #ff9999; padding: 8px; margin-top: 10px; border-radius: 4px;">
+            <strong style="color: #cc0000;">⚠️ WARNING:</strong> This employee has NEGATIVE leave balance(s). Please review leave transactions.
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+</body>
+</html>

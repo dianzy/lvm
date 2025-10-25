@@ -1,0 +1,198 @@
+i have excel based which has leave entry page summary page. summary page contains logic based on leave rnteies summary page displayes leave aviald and available details . now i want to host it to local host baclkend may b python with flask.also i have leaveentry and master CSV files with mewhich and give option to upload them in admin account like if we enter emp no and password same as emp no it should display exacrtly same things as when we click summary function i wil paste etire vb code of summary function here
+Also give option to change password for admin and also other users and also give admin rights to reset others password 
+Sub CalculateLeaveSummaryalTest()
+    Dim wb As Workbook: Set wb = ThisWorkbook
+    Dim summarySheet As Worksheet: Set summarySheet = wb.Sheets("summary")
+    Dim masterSheet As Worksheet: Set masterSheet = wb.Sheets("master")
+    Dim leaveSheet As Worksheet: Set leaveSheet = wb.Sheets("leaveentry")
+    Dim empNo As String: empNo = Trim(summarySheet.Range("B2").value)
+    Dim asOnDate As Date
+    If IsDate(summarySheet.Range("B3").value) Then
+        asOnDate = summarySheet.Range("B3").value
+    Else
+        MsgBox "Please enter a valid 'As On Date'", vbExclamation: Exit Sub
+    End If
+    If empNo = "" Then MsgBox "Please enter a valid Employee No.", vbExclamation: Exit Sub
+    
+    ' Get Master Data
+    Dim masterData As Variant, leaveData As Variant
+    masterData = masterSheet.Range("A1").CurrentRegion.value
+    leaveData = leaveSheet.Range("A1").CurrentRegion.value
+    Dim i As Long, j As Long
+    Dim headersM As Object: Set headersM = CreateObject("Scripting.Dictionary")
+    Dim headersL As Object: Set headersL = CreateObject("Scripting.Dictionary")
+    For j = 1 To UBound(masterData, 2)
+        headersM(LCase(Trim(masterData(1, j)))) = j
+    Next j
+    For j = 1 To UBound(leaveData, 2)
+        headersL(LCase(Trim(leaveData(1, j)))) = j
+    Next j
+    
+    ' Get required columns
+    On Error GoTo MissingColumn
+    Dim rowM As Long: rowM = 0
+    For i = 2 To UBound(masterData)
+        If Trim(masterData(i, headersM("emp_no"))) = empNo Then rowM = i: Exit For
+    Next i
+    If rowM = 0 Then MsgBox "Employee not found in master sheet.", vbExclamation: Exit Sub
+    
+    Dim empName As String: empName = masterData(rowM, headersM("name"))
+    Dim doj As Date: doj = masterData(rowM, headersM("doj"))
+    Dim openingPL As Double, openingPLPart As Double, plOpening As Double
+    openingPL = masterData(rowM, headersM("pl"))
+    openingPLPart = masterData(rowM, headersM("partial_pl_days"))
+    plOpening = openingPL + openingPLPart / 11
+    Dim clOpening As Double: clOpening = masterData(rowM, headersM("cl"))
+    Dim slOpening As Double: slOpening = masterData(rowM, headersM("sl"))
+    Dim rhOpening As Double: rhOpening = masterData(rowM, headersM("rh"))
+    
+    ' Initialize counters
+    Dim plUsed As Double, clUsed As Double, slUsed As Double, rhUsed As Double
+    Dim lopCount As Double, matLeaveCount As Double, encashCount As Double
+    Dim ineligibleDays As Double
+    Dim leaveDetails() As Variant: ReDim leaveDetails(1 To 1000, 1 To 8)
+    Dim leaveRow As Long: leaveRow = 0
+    Dim takenDates As Object: Set takenDates = CreateObject("Scripting.Dictionary")
+    
+    For i = 2 To UBound(leaveData)
+        If Trim(leaveData(i, headersL("emp_no"))) <> empNo Then GoTo NextRow
+        If leaveData(i, headersL("lvfrom")) = "" Then GoTo NextRow
+        Dim fromDate As Date: fromDate = leaveData(i, headersL("lvfrom"))
+        Dim toDate As Date
+        If leaveData(i, headersL("lvto")) = "" Then toDate = fromDate Else toDate = leaveData(i, headersL("lvto"))
+        If fromDate > asOnDate Then GoTo NextRow
+        If fromDate > toDate Then MsgBox "From > To date at row " & i + 1, vbExclamation: Exit Sub
+        Dim sessionVal As String: sessionVal = Trim(leaveData(i, headersL("session")))
+        Dim typeVal As String: typeVal = Trim(leaveData(i, headersL("type")))
+        Dim slTypeVal As String: If headersL.exists("sltype") Then slTypeVal = Trim(leaveData(i, headersL("sltype")))
+        Dim reason As String: If headersL.exists("reason") Then reason = leaveData(i, headersL("reason"))
+        Dim days As Double
+        If typeVal = "CL Halfday" Then
+            days = 0.5
+        Else
+            days = DateDiff("d", fromDate, toDate) + 1
+            If sessionVal = "F" Or sessionVal = "A" Then days = 0.5
+        End If
+        
+        ' Check for overlaps
+        Dim d As Date
+        For d = fromDate To toDate
+            Dim key As String: key = Format(d, "yyyy-mm-dd") & IIf(days = 0.5, " (0.5)", "")
+            If takenDates.exists(key) Then MsgBox "Overlapping leave on " & key & " at row " & i + 1, vbExclamation: Exit Sub
+            takenDates.Add key, True
+        Next d
+        
+        Select Case typeVal
+            Case "CL": clUsed = clUsed + days
+            Case "CL Halfday": clUsed = clUsed + 0.5
+            Case "PL": plUsed = plUsed + days: ineligibleDays = ineligibleDays + days
+            Case "SL_FP": slUsed = slUsed + 2 * days: ineligibleDays = ineligibleDays + days
+            Case "SL_HP": slUsed = slUsed + 1 * days: ineligibleDays = ineligibleDays + days
+            Case "S":
+                If slTypeVal = "F" Then slUsed = slUsed + 2 * days
+                If slTypeVal = "H" Then slUsed = slUsed + 1 * days
+                ineligibleDays = ineligibleDays + days
+            Case "L": lopCount = lopCount + days: ineligibleDays = ineligibleDays + days
+            Case "M": matLeaveCount = matLeaveCount + days: ineligibleDays = ineligibleDays + days
+            Case "E": encashCount = encashCount + 1: plUsed = plUsed + 15
+            Case "RH": rhUsed = rhUsed + days
+        End Select
+        
+        ' Add to leave detail table
+        leaveRow = leaveRow + 1
+        If leaveRow > UBound(leaveDetails, 1) Then ReDim Preserve leaveDetails(1 To leaveRow + 100, 1 To 8)
+        leaveDetails(leaveRow, 1) = leaveRow
+        leaveDetails(leaveRow, 2) = Format(fromDate, "yyyy-mm-dd")
+        leaveDetails(leaveRow, 3) = Format(toDate, "yyyy-mm-dd")
+        leaveDetails(leaveRow, 4) = sessionVal
+        leaveDetails(leaveRow, 5) = typeVal
+        leaveDetails(leaveRow, 6) = slTypeVal
+        leaveDetails(leaveRow, 7) = days
+        leaveDetails(leaveRow, 8) = reason
+NextRow:
+    Next i
+    
+    ' PL accrual (corrected logic)
+    Dim totalDays As Long: totalDays = DateDiff("d", doj, asOnDate)
+    Dim eligibleDays As Long: eligibleDays = totalDays - ineligibleDays
+    Dim accruedPL As Double: accruedPL = eligibleDays / 11
+    
+    ' Calculate closing PL with proper deduction and capping
+    Dim plAvailable As Double: plAvailable = plOpening - plUsed
+    Dim plClosing As Double: plClosing = plAvailable + accruedPL
+    If plClosing > 270 Then
+        plClosing = 270
+    ElseIf plClosing < 0 Then
+        plClosing = 0
+    End If
+    Dim plClosingFull As Long: plClosingFull = Int(plClosing)
+    Dim plClosingPart As Long: plClosingPart = Round((plClosing - plClosingFull) * 11)
+    
+    ' Output Heading
+    summarySheet.Range("A1").value = "UNITED INDIA INSURANCE COMPANY LIMITED - HEAD OFFICE"
+    summarySheet.Range("A1").Font.Bold = True
+    summarySheet.Range("A1").Font.Size = 12
+    summarySheet.Range("A2").value = "Leave details of " & empName & " (Emp No: " & empNo & ") as on " & Format(asOnDate, "yyyy-mm-dd")
+    
+    ' Clear old data
+    summarySheet.Range("A17:H1000").ClearContents
+    
+    ' Write Opening Balances above the table
+    summarySheet.Range("A17").value = "Opening Balances:"
+    summarySheet.Range("A18").value = "Opening PL: " & openingPL & " + " & openingPLPart & "/11"
+    summarySheet.Range("B18").value = "Opening CL: " & clOpening
+    summarySheet.Range("C18").value = "Opening SL: " & slOpening
+    summarySheet.Range("D18").value = "Opening RH: " & rhOpening
+    summarySheet.Range("E18").value = "Maternity Leave: " & matLeaveCount
+    summarySheet.Range("F18").value = "PL accrual " & Int(accruedPL) & " + " & Round((accruedPL - Int(accruedPL)) * 11) & "/11"
+    summarySheet.Range("A19").value = "PL Used: " & plUsed
+    summarySheet.Range("B19").value = "CL Used: " & clUsed
+    summarySheet.Range("C19").value = "SL Used: " & slUsed
+    
+    ' Table headers
+    summarySheet.Range("A20:H20").value = Array("Sl. No.", "LvFrom", "LvTo", "Session", "Type", "SLType", "Days", "Reason")
+    
+    ' Sort leaveDetails by LvFrom
+    If leaveRow > 0 Then
+        Dim k As Long, m As Long
+        Dim tempRow(1 To 8) As Variant
+        For k = 1 To leaveRow - 1
+            For m = k + 1 To leaveRow
+                If leaveDetails(k, 2) > leaveDetails(m, 2) Then
+                    For j = 1 To 8
+                        tempRow(j) = leaveDetails(k, j)
+                        leaveDetails(k, j) = leaveDetails(m, j)
+                        leaveDetails(m, j) = tempRow(j)
+                    Next j
+                End If
+            Next m
+        Next k
+        summarySheet.Range("A21").Resize(leaveRow, 8).value = leaveDetails
+        With summarySheet.Range("A21:H" & 20 + leaveRow)
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlCenter
+        End With
+        
+        ' Write Closing Balances after the table
+        Dim closingStartRow As Long: closingStartRow = 21 + leaveRow + 1
+        summarySheet.Range("A" & (closingStartRow + 1)).value = "Closing PL: " & plClosingFull & " + " & plClosingPart & "/11"
+        summarySheet.Range("B" & (closingStartRow + 1)).value = "Closing CL: " & clOpening - clUsed
+        summarySheet.Range("C" & (closingStartRow + 1)).value = "Closing SL: " & slOpening - slUsed
+        summarySheet.Range("D" & (closingStartRow + 1)).value = "Closing RH: " & rhOpening - rhUsed
+        summarySheet.Range("E" & (closingStartRow + 1)).value = "LOP Days: " & lopCount
+        summarySheet.Range("F" & (closingStartRow + 1)).value = "Encashments: " & encashCount
+        summarySheet.Range("A" & (closingStartRow + 1) & ":G" & (closingStartRow + 1)).Font.Bold = True
+    End If
+    
+    With summarySheet.Range("A20:H20")
+        .Font.Bold = True
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlCenter
+    End With
+    
+    MsgBox "Leave Summary Generated for Emp No: " & empNo, vbInformation
+    Exit Sub
+    
+MissingColumn:
+    MsgBox "One or more required columns missing in master/leaveentry.", vbCritical
+End Sub

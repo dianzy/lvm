@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Leave Management{% endblock %}
+
+{% block content %}
+<h2>Upload Data</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Upload Master Data</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="master_file" class="form-label">Master CSV File</label>
+                        <input type="file" class="form-control" id="master_file" name="master_file" accept=".csv" required>
+                        <div class="form-text">
+                            Required columns: emp_no, name, doj, pl, partial_pl_days, cl, sl, rh, l
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload Master Data</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Upload Leave Entries</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="leave_file" class="form-label">Leave CSV File</label>
+                        <input type="file" class="form-control" id="leave_file" name="leave_file" accept=".csv" required>
+                        <div class="form-text">
+                            Required columns: emp_no, lvfrom, type<br>
+                            Optional columns: lvto, session, sltype, reason
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Upload Leave Entries</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Upload Instructions</h5>
+            </div>
+            <div class="card-body">
+                <h6>Master Data Format:</h6>
+                <ul>
+                    <li><strong>emp_no:</strong> Employee number (text)</li>
+                    <li><strong>name:</strong> Employee name (text)</li>
+                    <li><strong>doj:</strong> Date of joining (YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY)</li>
+                    <li><strong>pl:</strong> Opening PL balance - whole days (number)</li>
+                    <li><strong>partial_pl_days:</strong> Partial PL - can be fraction like "5/11" or number like "5"</li>
+                    <li><strong>cl:</strong> Opening CL balance (number)</li>
+                    <li><strong>sl:</strong> Opening SL balance (number)</li>
+                    <li><strong>rh:</strong> Opening RH balance (number)</li>
+                    <li><strong>l:</strong> Employee status - P (Probationer), C (Confirmed), R (Retired)</li>
+                </ul>
+
+                <div class="alert alert-info">
+                    <h6>Employee Status (L column):</h6>
+                    <ul class="mb-0">
+                        <li><code>P</code> - Probationer (CL accrued at 1 day per 30 service days)</li>
+                        <li><code>C</code> - Confirmed (Fixed 12 CL per year)</li>
+                        <li><code>R</code> - Retired (Default handling)</li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-warning">
+                    <h6>Partial PL Days Examples:</h6>
+                    <ul class="mb-0">
+                        <li><code>5/11</code> - 5 days out of 11</li>
+                        <li><code>10/11</code> - 10 days out of 11</li>
+                        <li><code>1/11</code> - 1 day out of 11</li>
+                        <li><code>5</code> - Regular number format (treated as 5/11)</li>
+                        <li><code>0</code> - No partial days</li>
+                    </ul>
+                </div>
+
+                <h6 class="mt-3">Leave Entries Format:</h6>
+                <ul>
+                    <li><strong>emp_no:</strong> Employee number (text)</li>
+                    <li><strong>lvfrom:</strong> Leave from date (YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY)</li>
+                    <li><strong>lvto:</strong> Leave to date (optional, same format as lvfrom)</li>
+                    <li><strong>session:</strong> Session (F for Forenoon, A for Afternoon, optional)</li>
+                    <li><strong>type:</strong> Leave type (CL, PL, SL_FP, SL_HP, S, L, M, E, RH, etc.)</li>
+                    <li><strong>sltype:</strong> SL type (F for Full pay, H for Half pay, optional)</li>
+                    <li><strong>reason:</strong> Leave reason (optional)</li>
+                </ul>
+
+                <div class="alert alert-success">
+                    <h6>Sample Master CSV:</h6>
+                    <pre>emp_no,name,doj,pl,partial_pl_days,cl,sl,rh,l
+001,John Doe,01-01-2020,15,5/11,12,10,3,P
+002,Jane Smith,15-05-2019,20,10/11,15,8,2,C
+003,Bob Johnson,10-03-2021,12,0,10,12,1,R</pre>
+                </div>
+
+                <div class="alert alert-primary">
+                    <h6>Key Features:</h6>
+                    <ul class="mb-0">
+                        <li>✅ <strong>Probationer CL Calculation:</strong> For P status, CL is calculated as service_days ÷ 30</li>
+                        <li>✅ <strong>Confirmed CL:</strong> For C status, fixed 12 CL per year</li>
+                        <li>✅ <strong>Retroactive PL Accrual:</strong> Day-by-day simulation from DOJ</li>
+                        <li>✅ <strong>Fractional PL Display:</strong> Shows as "13 + 5/11" format</li>
+                        <li>✅ <strong>Overlap Detection:</strong> Prevents overlapping leave entries</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

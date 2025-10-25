@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Summary - Leave Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h6>Generate Summary</h6>
+            </div>
+            <div class="card-body p-2">
+                <form method="POST">
+                    <div class="mb-2">
+                        <label for="emp_no" class="form-label">Employee Number / Name</label>
+                        <input type="text" class="form-control form-control-sm" id="emp_no" name="emp_no" 
+                               value="{{ emp_no|normalize_emp_no if emp_no else '' }}" {% if not session.is_admin %}readonly{% endif %}
+                               placeholder="Enter emp no or name...">
+                        <div id="emp_search_results" class="mt-1"></div>
+                    </div>
+                    <div class="mb-2">
+                        <label for="as_on_date" class="form-label">As on Date</label>
+                        <input type="date" class="form-control form-control-sm" id="as_on_date" name="as_on_date" 
+                               value="{{ as_on_date.strftime('%Y-%m-%d') if as_on_date else '' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Generate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if summary %}
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-body p-3">
+                <!-- Report Header matching image format -->
+                <div class="report-header text-center mb-3">
+                    <h5 class="fw-bold mb-2">UNITED INDIA INSURANCE COMPANY LIMITED - HEAD OFFICE</h5>
+                    <p class="mb-2">Leave details of <strong>{{ summary.emp_name }}</strong>, EmpNo: <strong>{{ summary.emp_no|normalize_emp_no }}</strong> as on <strong>{{ summary.as_on_date }}</strong></p>
+                    <p class="mb-3">Employee Status: {{ summary.emp_status }}</p>
+                </div>
+
+                <!-- Line 1: Opening Balances and PL Accrued -->
+                <div class="balance-row mb-2">
+                    <table class="table table-sm table-borderless mb-2">
+                        <tr>
+                            <td>
+                                <strong>Opening PL:</strong> 
+                                {{ summary.opening_balances.pl }} + {{ summary.opening_balances.pl_part }}/11
+                            </td>
+                            <td>
+                                <strong>{% if summary.emp_status == 'Probationer' %}Accrued CL:{% else %}Opening CL:{% endif %}</strong>
+                                {{ summary.opening_balances.cl }}
+                            </td>
+                            <td>
+                                <strong>Opening SL:</strong> {{ summary.opening_balances.sl }}
+                            </td>
+                            <td>
+                                <strong>PL Accrued:</strong> {{ summary.other_details.accrued_pl_full }} + {{ summary.other_details.accrued_pl_part }}/11
+                            </td>
+                            <td>
+                                <strong>Cumulative LOP:</strong> {{ summary.opening_balances.cumulative_lop|default(0) }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Line 2: Used Balances, LOP, Maternity, Encashment -->
+                <div class="balance-row mb-2">
+                    <table class="table table-sm table-borderless mb-2">
+                        <tr>
+                            <td>
+                                <strong>PL Used:</strong> {{ summary.used_balances.pl }}
+                            </td>
+                            <td>
+                                <strong>CL Used:</strong> {{ summary.used_balances.cl }}
+                            </td>
+                            <td>
+                                <strong>SL Used:</strong> {{ summary.used_balances.sl }}
+                            </td>
+                            <td>
+                                <strong>LOP:</strong> {{ summary.other_details.lop_days }}
+                            </td>
+                            <td>
+                                <strong>Maternity:</strong> {{ summary.other_details.mat_leave }}
+                            </td>
+                            <td>
+                                <strong>Encashment:</strong> {{ summary.other_details.encashments }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Leave Details Table (matching image format exactly) -->
+                {% if summary.leave_details %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr class="text-center">
+                                <th>Sl. No.</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Session</th>
+                                <th>Type</th>
+                                <th>SL Type</th>
+                                <th>Days</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in summary.leave_details %}
+                            <tr class="text-center">
+                                <td>{{ leave.sl_no }}</td>
+                                <td>{{ leave.lv_from }}</td>
+                                <td>{{ leave.lv_to if leave.lv_to else leave.lv_from }}</td>
+                                <td>{{ leave.session if leave.session else '' }}</td>
+                                <td>{{ leave.type }}</td>
+                                <td>{{ leave.sl_type if leave.sl_type else '' }}</td>
+                                <td>{{ leave.days }}</td>
+                                <td class="text-start">{{ leave.reason if leave.reason else '' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                <!-- Line 3: Closing Balances -->
+                <div class="balance-row mt-2 mb-2">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr>
+                            <td>
+                                <strong>Closing PL:</strong> 
+                                <span class="{% if summary.closing_balances.pl < 0 %}text-danger fw-bold{% endif %}">
+                                    {{ summary.closing_balances.pl }} + {{ summary.closing_balances.pl_part }}/11
+                                </span>
+                            </td>
+                            <td>
+                                <strong>Closing CL:</strong> 
+                                <span class="{% if summary.closing_balances.cl < 0 %}text-danger fw-bold{% endif %}">
+                                    {{ summary.closing_balances.cl }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>Closing SL:</strong> 
+                                <span class="{% if summary.closing_balances.sl < 0 %}text-danger fw-bold{% endif %}">
+                                    {{ summary.closing_balances.sl }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong>Closing RH:</strong> 
+                                <span class="{% if summary.closing_balances.rh < 0 %}text-danger fw-bold{% endif %}">
+                                    {{ summary.closing_balances.rh }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Warning for negative balances -->
+                {% set has_negative = (summary.closing_balances.pl < 0) or (summary.closing_balances.cl < 0) or (summary.closing_balances.sl < 0) or (summary.closing_balances.rh < 0) %}
+                {% if has_negative %}
+                <div class="alert alert-warning mt-3 py-2">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Warning:</strong> Employee has NEGATIVE leave balance(s). Please review leave transactions.
+                </div>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="text-center mt-3">
+                    <button onclick="window.print()" class="btn btn-outline-primary btn-sm me-2">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button onclick="exportPDF()" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-file-pdf"></i> Export to PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Employee autocomplete search for summary page
+let empSearchTimeout;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Employee search autocomplete
+    const empNoInput = document.getElementById('emp_no');
+    if (empNoInput) {
+        empNoInput.addEventListener('input', function() {
+            const query = this.value.trim();
+
+            clearTimeout(empSearchTimeout);
+
+            if (query.length < 2) {
+                document.getElementById('emp_search_results').innerHTML = '';
+                return;
+            }
+
+            empSearchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/employee_search?q=${encodeURIComponent(query)}`);
+                    const results = await response.json();
+
+                    let html = '';
+                    if (results.length > 0) {
+                        html = '<div class="list-group mt-1">';
+                        results.forEach(emp => {
+                            html += `<button type="button" class="list-group-item list-group-item-action py-1 px-2" 
+                                     onclick="selectEmployeeForSummary('${emp.emp_no}', '${emp.name}')">
+                                        <small><strong>${emp.emp_no}</strong> - ${emp.name}</small>
+                                     </button>`;
+                        });
+                        html += '</div>';
+                    }
+
+                    document.getElementById('emp_search_results').innerHTML = html;
+
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }, 300);
+        });
+    }
+});
+
+function selectEmployeeForSummary(empNo, empName) {
+    document.getElementById('emp_no').value = empNo;
+    document.getElementById('emp_search_results').innerHTML = '';
+}
+
+// Clear search results when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('#emp_no') && !event.target.closest('#emp_search_results')) {
+        const resultsDiv = document.getElementById('emp_search_results');
+        if (resultsDiv) {
+            resultsDiv.innerHTML = '';
+        }
+    }
+});
+
+function exportPDF() {
+    // Trigger print dialog for PDF export
+    window.print();
+}
+</script>
+
+<style>
+/* Report styling to match image format */
+.report-header h5 {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.report-header p {
+    font-size: 13px;
+}
+
+.balance-row table {
+    font-size: 12px;
+}
+
+.balance-row td {
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+
+.table-bordered {
+    border: 1px solid #000;
+}
+
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #000;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.table-bordered thead {
+    background-color: #f0f0f0;
+}
+
+/* Negative balance styling */
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.fw-bold {
+    font-weight: bold !important;
+}
+
+/* Employee search results */
+.list-group {
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    z-index: 1000;
+    width: 100%;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+
+.list-group-item {
+    cursor: pointer;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Print styles */
+@media print {
+    .btn, .navbar {
+        display: none !important;
+    }
+
+    /* Hide the form column */
+    .col-md-3 {
+        display: none !important;
+    }
+
+    /* Make summary column full width */
+    .col-md-9 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .card-body {
+        display: block !important;
+    }
+
+    body {
+        font-size: 12px;
+    }
+
+    .table-bordered {
+        border: 1px solid #000 !important;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #000 !important;
+        font-size: 11px;
+        padding: 4px;
+    }
+
+    .alert {
+        border: 1px solid #000;
+        background-color: #fff !important;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .balance-row table {
+        font-size: 10px;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        font-size: 10px;
+        padding: 4px;
+    }
+}
+</style>
+{% endblock %}

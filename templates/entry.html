@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Entry - Leave Management{% endblock %}
+
+{% block content %}
+<h2>Leave Entry & Management</h2>
+
+<!-- Employee Search Card -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label for="emp_no" class="form-label">Employee Number</label>
+                <input type="text" autocomplete="off" class="form-control" id="emp_no" placeholder="Enter emp no or name...">
+                <div id="emp_search_results" class="mt-1"></div>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-primary" id="fetch_leaves">
+                    <i class="fas fa-search"></i> Fetch Leaves
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('export_excel') }}" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Export Excel
+                </a>
+            </div>
+            <div class="col-md-4 text-end">
+                <small class="text-muted">Export includes both Master and Leave Entry sheets</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Leaves Card -->
+<div class="card" id="leaves_card" style="display: none;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="fas fa-user"></i> Leaves for Employee: <span id="emp_name" class="text-primary"></span>
+        </h6>
+        <button type="button" class="btn btn-sm btn-success" id="add_leave" accesskey="a" title="Add Leave (Shortcut: A)">
+            <i class="fas fa-plus"></i> Add Leave
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover" id="leaves_table">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 8%;">S.No</th>
+                        <th style="width: 12%;">From</th>
+                        <th style="width: 12%;">To</th>
+                        <th style="width: 10%;">Session</th>
+                        <th style="width: 12%;">Type</th>
+                        <th style="width: 10%;">SL Type</th>
+                        <th style="width: 26%;">Reason</th>
+                        <th style="width: 10%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="leaves_tbody">
+                    <!-- Leave entries will be populated here -->
+                </tbody>
+            </table>
+        </div>
+        <div id="no_leaves" class="text-center py-3 text-muted" style="display: none;">
+            <i class="fas fa-info-circle fa-2x mb-2"></i>
+            <p>No leave entries found for this employee.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Leave Modal -->
+<div class="modal fade" id="leaveModal" tabindex="-1" aria-labelledby="leaveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="leaveModalLabel">Add Leave</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="leaveForm">
+                    <input type="hidden" id="leave_id">
+                    <input type="hidden" id="modal_emp_no">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="lvfrom" class="form-label">From Date *</label>
+                            <input type="date" class="form-control" id="lvfrom" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="lvto" class="form-label">To Date</label>
+                            <input type="date" class="form-control" id="lvto">
+                            <small class="text-muted">Leave blank for single day leave</small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="leave_type" class="form-label">Leave Type *</label>
+                            <select class="form-select" id="leave_type" required>
+                                <option value="">Select Leave Type</option>
+                                <option value="CL">CL - Casual Leave</option>
+                                <option value="CL_HALFDAY">CL Half Day</option>
+                                <option value="PL">PL - Privilege Leave</option>
+                                <option value="SL_FP">SL Full Pay</option>
+                                <option value="SL_HP">SL Half Pay</option>
+                                <option value="RH">RH - Restricted Holiday</option>
+                                <option value="L">LOP - Loss of Pay</option>
+                                <option value="M">Maternity Leave</option>
+                                <option value="E">Encashment</option>
+                                <option value="OTHERS">Others</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="session" class="form-label">Session</label>
+                            <select class="form-select" id="session">
+                                <option value="">Full Day</option>
+                                <option value="F">Forenoon</option>
+                                <option value="A">Afternoon</option>
+                            </select>
+                            <small class="text-muted">For half day leaves</small>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sltype" class="form-label">SL Type</label>
+                            <select class="form-select" id="sltype">
+                                <option value="">Not Applicable</option>
+                                <option value="F">F - Full Pay</option>
+                                <option value="H">H - Half Pay</option>
+                            </select>
+                            <small class="text-muted">Only for SL leaves</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="reason" class="form-label">Reason</label>
+                            <input type="text" class="form-control" id="reason" maxlength="200">
+                            <small class="text-muted">Auto-filled based on leave type, you can edit</small>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Auto Reasons:</h6>
+                        <small>
+                            <strong>SL:</strong> Viral fever | <strong>RH:</strong> RH | <strong>LOP:</strong> LOP | 
+                            <strong>Maternity:</strong> Maternity | <strong>Encashment:</strong> Encashment | 
+                            <strong>CL/PL:</strong> Personal work | <strong>Others:</strong> Blank
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save_leave">
+                    <i class="fas fa-save"></i> Save Leave
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+let currentEmpNo = '';
+let leaveModal;
+let currentLeaveData = [];
+let empSearchTimeout;
+let lastEnteredDate = null; // Store last entered date for calendar persistence
+
+// Reason defaults
+const REASON_DEFAULTS = {
+    'SL_FP': 'Viral fever',
+    'SL_HP': 'Viral fever',
+    'S': 'Viral fever',
+    'RH': 'RH',
+    'L': 'LOP',
+    'M': 'Maternity',
+    'E': 'Encashment',
+    'OTHERS': '',
+    'CL': 'Personal work',
+    'CL_HALFDAY': 'Personal work',
+    'PL': 'Personal work'
+};
+
+// Initialize modal and autocomplete
+document.addEventListener('DOMContentLoaded', function() {
+    leaveModal = new bootstrap.Modal(document.getElementById('leaveModal'));
+
+    // Event listeners
+    document.getElementById('fetch_leaves').addEventListener('click', fetchLeaves);
+    // Initialize employee input listeners (keydown + input handlers)
+    initEmpInput();
+    document.getElementById('add_leave').addEventListener('click', showAddLeaveModal);
+    document.getElementById('save_leave').addEventListener('click', saveLeave);
+
+    // Auto-fill to date when from date changes
+    document.getElementById('lvfrom').addEventListener('change', function() {
+        const toDate = document.getElementById('lvto');
+        // Always update To date to match From date when From changes
+        toDate.value = this.value;
+    });
+
+    // Auto-fill reason when leave type changes
+    document.getElementById('leave_type').addEventListener('change', function() {
+        const reason = document.getElementById('reason');
+        const defaultReason = REASON_DEFAULTS[this.value] || '';
+
+        // Only auto-fill if current reason is empty or default
+        if (!reason.value || Object.values(REASON_DEFAULTS).includes(reason.value)) {
+            reason.value = defaultReason;
+        }
+    });
+
+    // Employee search autocomplete
+    document.getElementById('emp_no').addEventListener('input', function() {
+        const query = this.value.trim();
+
+        clearTimeout(empSearchTimeout);
+
+        if (query.length < 2) {
+            document.getElementById('emp_search_results').innerHTML = '';
+            return;
+        }
+
+        empSearchTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/employee_search?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+
+                let html = '';
+                if (results.length > 0) {
+                    html = '<div class="list-group mt-1">';
+                          results.forEach(emp => {
+                                // Use data attributes to store emp details (safer than embedding in onclick)
+                                html += `<button type="button" class="list-group-item list-group-item-action py-1 px-2" data-emp-no="${emp.emp_no}" data-emp-name="${emp.name}">
+                                                <small><strong>${emp.emp_no}</strong> - ${emp.name}</small>
+                                            </button>`;
+                          });
+                    html += '</div>';
+                }
+
+                document.getElementById('emp_search_results').innerHTML = html;
+
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }, 300);
+    });
+});
+
+function selectEmployee(empNo, empName) {
+    // Replace the input element to force the browser to drop any native autocomplete popup (Edge fix)
+    const oldInput = document.getElementById('emp_no');
+    const wrapper = oldInput.parentNode;
+    const newInput = oldInput.cloneNode(true);
+    newInput.value = empNo;
+    newInput.setAttribute('autocomplete', 'off');
+    wrapper.replaceChild(newInput, oldInput);
+
+    // Clear our custom dropdown
+    document.getElementById('emp_search_results').innerHTML = '';
+
+    // Reinitialize event handlers for the new input
+    initEmpInput();
+
+    // Auto-fetch leaves
+    fetchLeaves();
+}
+
+// Initialize employee input event handlers (separate function so we can rebind after replacing input)
+function initEmpInput() {
+    const empInput = document.getElementById('emp_no');
+    if (!empInput) return;
+
+    // Remove any existing handlers by cloning and replacing (clean slate)
+    const clean = empInput.cloneNode(true);
+    empInput.parentNode.replaceChild(clean, empInput);
+
+    // Keydown handler for Enter
+    clean.addEventListener('keydown', async function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const resultsContainer = document.getElementById('emp_search_results');
+            if (resultsContainer) {
+                const list = resultsContainer.querySelector('.list-group');
+                if (list) {
+                    const firstItem = list.querySelector('.list-group-item');
+                    if (firstItem) {
+                        const empNo = firstItem.getAttribute('data-emp-no') || firstItem.dataset.empNo;
+                        const empName = firstItem.getAttribute('data-emp-name') || firstItem.dataset.empName || '';
+                        if (empNo) {
+                            selectEmployee(empNo, empName);
+                            return;
+                        }
+                        firstItem.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                        return;
+                    }
+                }
+                // No items: clear stuck HTML
+                if (resultsContainer.innerHTML.trim()) resultsContainer.innerHTML = '';
+            }
+
+            // No suggestion selected: verify employee exists in master before fetching
+            const empNo = this.value.trim();
+            if (!empNo) return;
+
+            try {
+                const resp = await fetch(`/api/employee_summary/${encodeURIComponent(empNo)}`);
+                if (resp.status === 404) {
+                    alert('Employee not found in master data');
+                    return;
+                }
+            } catch (err) {
+                console.error('Summary check failed:', err);
+            }
+
+            fetchLeaves();
+        }
+    });
+
+    // Input handler (search)
+    clean.addEventListener('input', function() {
+        const input = this;
+        const query = input.value.trim();
+        clearTimeout(empSearchTimeout);
+        const resultsContainer = document.getElementById('emp_search_results');
+
+        if (query.length < 2) {
+            if (resultsContainer) resultsContainer.innerHTML = '';
+            return;
+        }
+
+        empSearchTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/employee_search?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+                let html = '';
+                if (results.length > 0) {
+                    html = '<div class="list-group mt-1">';
+                    results.forEach(emp => {
+                        html += `<button type="button" class="list-group-item list-group-item-action py-1 px-2" data-emp-no="${emp.emp_no}" data-emp-name="${emp.name}">` +
+                                `<small><strong>${emp.emp_no}</strong> - ${emp.name}</small>` +
+                                `</button>`;
+                    });
+                    html += '</div>';
+                }
+                if (resultsContainer) resultsContainer.innerHTML = html;
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }, 300);
+    });
+
+    // Delegate click events on result container
+    const resultsContainer = document.getElementById('emp_search_results');
+    if (resultsContainer) {
+        resultsContainer.removeEventListener('click', resultsContainer._clickHandler || function(){});
+        const handler = function(e) {
+            const btn = e.target.closest('.list-group-item');
+            if (btn) {
+                const empNo = btn.dataset.empNo || btn.getAttribute('data-emp-no');
+                const empName = btn.dataset.empName || btn.getAttribute('data-emp-name') || '';
+                if (empNo) selectEmployee(empNo, empName);
+            }
+        };
+        resultsContainer.addEventListener('click', handler);
+        resultsContainer._clickHandler = handler;
+    }
+}
+
+// Fetch leaves for employee
+async function fetchLeaves() {
+    const empNo = document.getElementById('emp_no').value.trim();
+
+    if (!empNo) {
+        alert('Please enter an employee number');
+        return;
+    }
+
+    try {
+        // First try to fetch employee summary to get the name (if available)
+        try {
+            const summaryResp = await fetch(`/api/employee_summary/${empNo}`);
+            if (summaryResp.ok) {
+                const summaryJson = await summaryResp.json();
+                const empName = summaryJson.data && summaryJson.data.name ? summaryJson.data.name : '';
+                document.getElementById('emp_name').textContent = empNo + (empName ? ' - ' + empName : '');
+            } else {
+                // Fallback to showing only emp no
+                document.getElementById('emp_name').textContent = empNo;
+            }
+        } catch (err) {
+            // Non-fatal - continue to fetch leaves
+            document.getElementById('emp_name').textContent = empNo;
+        }
+
+        const response = await fetch(`/api/leaves/${empNo}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            alert(data.error || 'Error fetching leaves');
+            return;
+        }
+
+        currentEmpNo = empNo;
+        currentLeaveData = data.leaves;
+        displayLeaves(data.leaves);
+        document.getElementById('leaves_card').style.display = 'block';
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error fetching leaves');
+    }
+}
+
+// Display leaves in table
+function displayLeaves(leaves) {
+    const tbody = document.getElementById('leaves_tbody');
+    const noLeavesDiv = document.getElementById('no_leaves');
+
+    tbody.innerHTML = '';
+
+    if (!leaves || leaves.length === 0) {
+        noLeavesDiv.style.display = 'block';
+        return;
+    }
+
+    noLeavesDiv.style.display = 'none';
+
+    leaves.forEach(leave => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="text-center"><strong>${leave.sl_no}</strong></td>
+            <td>${formatDate(leave.lvfrom)}</td>
+            <td>${leave.lvto ? formatDate(leave.lvto) : '-'}</td>
+            <td class="text-center">${leave.session || '-'}</td>
+            <td>
+                <span class="badge ${getLeaveTypeBadge(leave.type)}">${leave.type}</span>
+            </td>
+            <td class="text-center">${leave.sltype || '-'}</td>
+            <td>${leave.reason || '-'}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editLeave(${leave.id})" title="Edit">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteLeave(${leave.id})" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Get badge class for leave type
+function getLeaveTypeBadge(type) {
+    switch(type) {
+        case 'PL': return 'bg-primary';
+        case 'CL': 
+        case 'CL_HALFDAY': return 'bg-success';
+        case 'SL_FP':
+        case 'SL_HP': return 'bg-warning text-dark';
+        case 'L': return 'bg-danger';
+        case 'M': return 'bg-info';
+        case 'E': return 'bg-secondary';
+        case 'RH': return 'bg-dark';
+        default: return 'bg-light text-dark';
+    }
+}
+
+// Format date for display
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB');
+}
+
+// Show add leave modal
+function showAddLeaveModal() {
+    if (!currentEmpNo) {
+        alert('Please select an employee first');
+        return;
+    }
+
+    // Reset form
+    document.getElementById('leaveForm').reset();
+    document.getElementById('leave_id').value = '';
+    document.getElementById('modal_emp_no').value = currentEmpNo;
+    document.getElementById('leaveModalLabel').textContent = 'Add Leave';
+    
+    // Set the calendar to last entered date if available
+    if (lastEnteredDate) {
+        document.getElementById('lvfrom').value = lastEnteredDate;
+        document.getElementById('lvto').value = lastEnteredDate;
+    }
+
+    leaveModal.show();
+}
+
+// Edit leave
+function editLeave(leaveId) {
+    const leave = currentLeaveData.find(l => l.id === leaveId);
+    if (!leave) {
+        alert('Leave not found');
+        return;
+    }
+
+    // Populate form
+    document.getElementById('leave_id').value = leave.id;
+    document.getElementById('modal_emp_no').value = leave.emp_no;
+    document.getElementById('lvfrom').value = leave.lvfrom;
+    document.getElementById('lvto').value = leave.lvto || '';
+    document.getElementById('leave_type').value = leave.type;
+    document.getElementById('session').value = leave.session || '';
+    document.getElementById('sltype').value = leave.sltype || '';
+    document.getElementById('reason').value = leave.reason || '';
+
+    document.getElementById('leaveModalLabel').textContent = 'Edit Leave';
+    leaveModal.show();
+}
+
+// Delete leave
+async function deleteLeave(leaveId) {
+    if (!confirm('Are you sure you want to delete this leave entry?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/leaves/${leaveId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            fetchLeaves(); // Refresh the table
+        } else {
+            alert(data.error || 'Error deleting leave');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting leave');
+    }
+}
+
+// Save leave (create or update)
+async function saveLeave() {
+    const leaveId = document.getElementById('leave_id').value;
+    const empNo = document.getElementById('modal_emp_no').value;
+    const lvfrom = document.getElementById('lvfrom').value;
+    const lvto = document.getElementById('lvto').value;
+    const leaveType = document.getElementById('leave_type').value;
+    const session = document.getElementById('session').value;
+    const sltype = document.getElementById('sltype').value;
+    const reason = document.getElementById('reason').value;
+
+    // Client-side validation
+    if (!empNo || !lvfrom || !leaveType) {
+        alert('Employee number, from date, and leave type are required');
+        return;
+    }
+
+    if (lvto && lvfrom > lvto) {
+        alert('From date cannot be greater than To date');
+        return;
+    }
+
+    const leaveData = {
+        emp_no: empNo,
+        lvfrom: lvfrom,
+        lvto: lvto || lvfrom,
+        type: leaveType,
+        session: session,
+        sltype: sltype,
+        reason: reason || 'auto'
+    };
+
+    try {
+        let response;
+        if (leaveId) {
+            // Update existing leave
+            response = await fetch(`/api/leaves/${leaveId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(leaveData)
+            });
+        } else {
+            // Create new leave
+            response = await fetch('/api/leaves', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(leaveData)
+            });
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Store the last entered date for calendar persistence
+            lastEnteredDate = lvfrom;
+            
+            if (data.warning) {
+                alert(`Leave saved successfully!\n\n${data.warning}`);
+            } else {
+                // Show success message briefly
+                const saveBtn = document.getElementById('save_leave');
+                const originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+                saveBtn.classList.remove('btn-primary');
+                saveBtn.classList.add('btn-success');
+
+                setTimeout(() => {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.classList.remove('btn-success');
+                    saveBtn.classList.add('btn-primary');
+                }, 1000);
+            }
+
+            leaveModal.hide();
+            fetchLeaves(); // Refresh the table
+        } else {
+            alert(data.error || 'Error saving leave');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error saving leave');
+    }
+}
+
+// Make functions available globally for onclick handlers
+window.editLeave = editLeave;
+window.deleteLeave = deleteLeave;
+window.selectEmployee = selectEmployee;
+
+// Delegate clicks from the results container to handle selection without inline onclick
+document.getElementById('emp_search_results').addEventListener('click', function(e) {
+    const btn = e.target.closest('.list-group-item');
+    if (btn) {
+        const empNo = btn.dataset.empNo || btn.getAttribute('data-emp-no');
+        const empName = btn.dataset.empName || btn.getAttribute('data-emp-name') || '';
+        if (empNo) selectEmployee(empNo, empName);
+    }
+});
+
+// Clear search results when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('#emp_no') && !event.target.closest('#emp_search_results')) {
+        document.getElementById('emp_search_results').innerHTML = '';
+    }
+});
+
+// Shortcut key: 'A' to open Add Leave (when not focused in a form control)
+document.addEventListener('keydown', function(e) {
+    // Ignore if any modifier keys are pressed
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+    // If focus is inside input/select/textarea or contenteditable, ignore
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable)) return;
+
+    if (e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const addBtn = document.getElementById('add_leave');
+        if (addBtn) addBtn.click();
+    }
+});
+</script>
+
+<style>
+/* Custom styling for entry page */
+.table-responsive {
+    border-radius: 0.375rem;
+}
+
+.badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    background-color: #343a40;
+    color: white;
+    font-weight: 600;
+    border: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,.075);
+}
+
+/* Form styling */
+.form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Alert styling */
+.alert-info {
+    background-color: #e7f3ff;
+    border-color: #b6d7ff;
+    color: #004085;
+}
+
+/* Animation for success feedback */
+.btn.btn-success {
+    transition: all 0.3s ease;
+}
+
+/* Employee search results */
+.list-group {
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    z-index: 1000;
+    width: 100%;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+
+.list-group-item {
+    cursor: pointer;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}

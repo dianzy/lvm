@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Master Data Management - Leave Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-users-cog"></i> Master Data Management</h2>
+        <p class="text-muted">Manage employee master data, opening balances, and confirmation status</p>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <!-- Search Form -->
+                <form method="GET" class="d-flex">
+                    <input type="text" class="form-control form-control-sm me-2" 
+                           name="search" placeholder="Search by employee number or name..." 
+                           value="{{ search_query or '' }}">
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    {% if search_query %}
+                    <a href="{{ url_for('master_data_management') }}" class="btn btn-outline-secondary btn-sm ms-1">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="{{ url_for('add_employee') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> Add Employee
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee List -->
+{% if employees.items %}
+<!-- Summary Header -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="mb-0">
+                    <i class="fas fa-users"></i> 
+                    {% if search_query %}
+                    Search Results for "{{ search_query }}"
+                    {% else %}
+                    All Employees
+                    {% endif %}
+                </h6>
+                <small class="text-muted">
+                    Showing {{ employees.items|length }} of {{ employees.total }} employees
+                </small>
+            </div>
+            <div class="col-md-4 text-end">
+                <small class="text-muted">
+                    Page {{ employees.page }} of {{ employees.pages }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 9%;">Emp No</th>
+                        <th style="width: 18%;">Name</th>
+                        <th style="width: 10%;">DOJ</th>
+                        <th style="width: 7%;">Status</th>
+                        <th style="width: 7%;" class="text-center">PL</th>
+                        <th style="width: 7%;" class="text-center">CL</th>
+                        <th style="width: 7%;" class="text-center">SL</th>
+                        <th style="width: 7%;" class="text-center">RH</th>
+                        <th style="width: 7%;" class="text-center">LOP</th>
+                        <th style="width: 18%;" class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees.items %}
+                    <tr>
+                        <td><strong>{{ emp.emp_no }}</strong></td>
+                        <td>{{ emp.name }}</td>
+                        <td>{{ emp.doj.strftime('%d-%m-%Y') }}</td>
+                        <td>
+                            <span class="badge bg-success">Confirmed</span>
+                        </td>
+                        <td class="text-center">
+                            {{ emp.pl }}{% if emp.partial_pl_days > 0 %}+{{ emp.partial_pl_days }}/11{% endif %}
+                        </td>
+                        <td class="text-center">{{ emp.cl }}</td>
+                        <td class="text-center">{{ emp.sl }}</td>
+                        <td class="text-center">{{ emp.rh }}</td>
+                        <td class="text-center">{{ emp.lop|default(0) }}</td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('edit_employee', emp_no=emp.emp_no) }}" 
+                                   class="btn btn-outline-primary" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" 
+                                        onclick="confirmDelete('{{ emp.emp_no }}', '{{ emp.name }}')"
+                                        title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if employees.pages > 1 %}
+<nav aria-label="Page navigation" class="mt-3">
+    <ul class="pagination justify-content-center">
+        {% if employees.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('master_data_management', page=employees.prev_num, search=search_query) }}">
+                Previous
+            </a>
+        </li>
+        {% endif %}
+
+        {% for page_num in employees.iter_pages() %}
+            {% if page_num %}
+                {% if page_num != employees.page %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('master_data_management', page=page_num, search=search_query) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% endif %}
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if employees.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('master_data_management', page=employees.next_num, search=search_query) }}">
+                Next
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<!-- No Employees Found -->
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+        {% if search_query %}
+        <h5>No employees found</h5>
+        <p class="text-muted">No employees match your search criteria: "{{ search_query }}"</p>
+        <a href="{{ url_for('master_data_management') }}" class="btn btn-outline-primary">
+            <i class="fas fa-list"></i> View All Employees
+        </a>
+        {% else %}
+        <h5>No employees in master data</h5>
+        <p class="text-muted">Start by adding employees to the master data.</p>
+        <a href="{{ url_for('add_employee') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add First Employee
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Confirm delete
+function confirmDelete(empNo, empName) {
+    if (confirm(`Are you sure you want to delete employee ${empNo} - ${empName}?\n\nThis action cannot be undone.`)) {
+        // Create a form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/master_data/delete/${empNo}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+<style>
+.table th {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.table td {
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+.btn-group-sm > .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}

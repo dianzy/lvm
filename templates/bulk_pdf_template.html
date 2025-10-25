@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bulk Leave Report</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            margin: 0; 
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .employee-section {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+        }
+        .employee-header {
+            background-color: #f0f0f0;
+            padding: 10px;
+            font-weight: bold;
+            border-left: 4px solid #007bff;
+            margin-bottom: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .balance-table th {
+            background-color: #e3f2fd;
+        }
+        .lop-table th {
+            background-color: #ffebee;
+        }
+        .sl-hp-table th {
+            background-color: #fff3e0;
+        }
+        .negative {
+            color: red;
+            font-weight: bold;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Bulk Leave Summary Report</h1>
+        <p><strong>As on Date:</strong> {{ as_on_date }}</p>
+        <p><strong>Generated on:</strong> {{ generated_on }}</p>
+        <p><strong>Total Employees:</strong> {{ bulk_results|length }}</p>
+    </div>
+
+    {% for result in bulk_results %}
+    <div class="employee-section">
+        <div class="employee-header">
+            {{ loop.index }}. {{ result.emp_name }} ({{ result.emp_no }}) - {{ result.emp_status }}
+            <span style="float: right;">DOJ: {{ result.doj }}</span>
+        </div>
+
+        <!-- Balance Summary -->
+        <table class="balance-table">
+            <thead>
+                <tr>
+                    <th>Leave Type</th>
+                    <th class="text-center">Closing Balance</th>
+                    <th class="text-center">Used</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>PL - Privilege Leave</strong></td>
+                    <td class="text-center {% if result.closing_balances.pl < 0 %}negative{% endif %}">
+                        {% if result.closing_balances.pl_part > 0 %}
+                            {{ result.closing_balances.pl }} + {{ result.closing_balances.pl_part }}/11
+                        {% else %}
+                            {{ result.closing_balances.pl }}
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ result.used_balances.pl }}</td>
+                </tr>
+                <tr>
+                    <td><strong>CL - Casual Leave</strong></td>
+                    <td class="text-center {% if result.closing_balances.cl < 0 %}negative{% endif %}">
+                        {{ result.closing_balances.cl }}
+                    </td>
+                    <td class="text-center">{{ result.used_balances.cl }}</td>
+                </tr>
+                <tr>
+                    <td><strong>SL - Sick Leave</strong></td>
+                    <td class="text-center {% if result.closing_balances.sl < 0 %}negative{% endif %}">
+                        {{ result.closing_balances.sl }}
+                    </td>
+                    <td class="text-center">{{ result.used_balances.sl }}</td>
+                </tr>
+                <tr>
+                    <td><strong>RH - Restricted Holiday</strong></td>
+                    <td class="text-center {% if result.closing_balances.rh < 0 %}negative{% endif %}">
+                        {{ result.closing_balances.rh }}
+                    </td>
+                    <td class="text-center">{{ result.used_balances.rh }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {% if result.lop_entries|length > 0 %}
+        <!-- LOP Details -->
+        <h4 style="color: #d32f2f; margin-top: 25px;">🚫 Loss of Pay (LOP) Details</h4>
+        <table class="lop-table">
+            <thead>
+                <tr>
+                    <th>From Date</th>
+                    <th>To Date</th>
+                    <th class="text-center">Days</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lop in result.lop_entries %}
+                <tr>
+                    <td>{{ lop.lv_from }}</td>
+                    <td>{{ lop.lv_to or lop.lv_from }}</td>
+                    <td class="text-center"><strong>{{ lop.days }}</strong></td>
+                    <td>{{ lop.reason or '-' }}</td>
+                </tr>
+                {% endfor %}
+                <tr style="background-color: #ffcdd2;">
+                    <td colspan="2"><strong>Total LOP Days:</strong></td>
+                    <td class="text-center"><strong>{{ result.total_lop_days }}</strong></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if result.sl_hp_entries|length > 0 %}
+        <!-- SL Half Pay Details -->
+        <h4 style="color: #f57c00; margin-top: 25px;">⚡ Sick Leave Half Pay Details</h4>
+        <table class="sl-hp-table">
+            <thead>
+                <tr>
+                    <th>From Date</th>
+                    <th>To Date</th>
+                    <th class="text-center">Days</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for slhp in result.sl_hp_entries %}
+                <tr>
+                    <td>{{ slhp.lv_from }}</td>
+                    <td>{{ slhp.lv_to or slhp.lv_from }}</td>
+                    <td class="text-center"><strong>{{ slhp.days }}</strong></td>
+                    <td>{{ slhp.reason or '-' }}</td>
+                </tr>
+                {% endfor %}
+                <tr style="background-color: #ffe0b2;">
+                    <td colspan="2"><strong>Total SL HP Days:</strong></td>
+                    <td class="text-center"><strong>{{ result.total_sl_hp_days }}</strong></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if result.lop_entries|length == 0 and result.sl_hp_entries|length == 0 %}
+        <div class="no-data">
+            ✅ No LOP or SL Half Pay entries found for this employee.
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not loop.last %}
+    <div class="page-break"></div>
+    {% endif %}
+    {% endfor %}
+
+</body>
+</html>

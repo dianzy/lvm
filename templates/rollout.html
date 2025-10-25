@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Rollout Master CSV{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Rollout - Generate master CSV</h2>
+    <p>Enter the "as on" date to compute closing balances and generate a master-format CSV with updated balances.</p>
+
+    <form method="post" class="form-inline">
+        <div class="form-group mb-2">
+            <label for="as_on_date" class="mr-2">As on date</label>
+            <input type="date" id="as_on_date" name="as_on_date" class="form-control" required value="{{ date.today().isoformat() }}">
+        </div>
+        <button type="submit" class="btn btn-primary mb-2 ml-2">Rollout</button>
+    </form>
+
+    <div class="alert alert-info mt-3">
+        <strong>Behavior:</strong>
+        <ul>
+            <li>CL will be set to 12 for all employees, RH to 2.</li>
+            <li>SL computed as (days since 01-01-2025 up to as-on-date minus current-year LOP days) / 12, rounded to 2 decimals.</li>
+            <li>PL and partial PL are taken from the LeaveCalculator's closing balances as on the provided date.</li>
+            <li>Output file is CSV named like <code>master_rollout_YYYYMMDD_timestamp.csv</code> in the same column order as required.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

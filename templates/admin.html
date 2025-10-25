@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Leave Management{% endblock %}
+
+{% block content %}
+<h2>User Administration</h2>
+
+<div class="card">
+    <div class="card-header">
+        <h5>Manage Users</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Employee No</th>
+                        <th>Name</th>
+                        <th>Admin</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.emp_no }}</td>
+                        <td>{{ user.name }}</td>
+                        <td>
+                            {% if user.is_admin %}
+                                <span class="badge bg-success">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</td>
+                        <td>
+                            {% if user.emp_no != 'admin' %}
+                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" 
+                                    data-bs-target="#resetPasswordModal{{ user.id }}">
+                                Reset Password
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Reset Password Modal -->
+                    <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Reset Password - {{ user.emp_no }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="POST" action="{{ url_for('reset_password', user_id=user.id) }}">
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label for="new_password{{ user.id }}" class="form-label">New Password</label>
+                                            <input type="password" class="form-control" id="new_password{{ user.id }}" 
+                                                   name="new_password" required>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-warning">Reset Password</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

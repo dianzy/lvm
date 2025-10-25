@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Tracking{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-calendar-check"></i> Attendance Tracking - {{ year }}</h2>
+        <div>
+            <a href="{{ url_for('manage_departments') }}" class="btn btn-secondary">
+                <i class="fas fa-building"></i> Manage Departments
+            </a>
+            <a href="{{ url_for('export_attendance_excel', year=year) }}" class="btn btn-success">
+                <i class="fas fa-download"></i> Export to Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- Year selector and Upload -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <form method="get" class="form-inline">
+                <label class="mr-2">Year:</label>
+                <select name="year" class="form-control mr-2" onchange="this.form.submit()">
+                    {% for y in range(2020, 2031) %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="col-md-4 text-center">
+            <div class="card bg-success text-white mb-0">
+                <div class="card-body py-2">
+                    <h5 class="mb-0">Next Index Number: <strong id="global-next-index" style="font-size: 1.3em;">{{ global_next_index }}</strong></h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 text-right">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="fas fa-upload"></i> Upload Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Department Progress Selector -->
+    {% if dept_progress %}
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-chart-line"></i> Department Progress - {{ year }}
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <label for="dept-progress-select" class="form-label">Select Department</label>
+                    <select id="dept-progress-select" class="form-select" data-months="{{ ','.join(months) }}">
+                        <option value="" disabled selected>-- Select department --</option>
+                        {% for dept in dept_progress %}
+                            <option value="{{ loop.index0 }}" data-dept-id="{{ dept.dept_id }}" data-month-num="{{ dept.latest_month_num }}">{{ dept.dept_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Latest Month Submitted</label>
+                    <div id="dept-progress-display" class="mt-2">
+                        <span class="text-muted">Select a department to see its status</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Grid -->
+    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+        <table class="table table-bordered table-hover table-sm">
+            <thead class="thead-dark" style="position: sticky; top: 0; z-index: 10;">
+                <tr>
+                    <th style="min-width: 200px;">Department</th>
+                    {% for month in months %}
+                    <th style="min-width: 80px;">{{ month }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% if grid_data %}
+                    {% for row in grid_data %}
+                    <tr>
+                        <td><strong>{{ row.dept.name }}</strong></td>
+                        {% for month_idx in range(12) %}
+                        <td>
+                <input type="text" 
+                    class="form-control form-control-sm index-input {{ 'missing-index' if not row.indices[month_idx] else '' }}" 
+                    value="{{ row.indices[month_idx] }}"
+                    data-dept-id="{{ row.dept.id }}"
+                    data-month="{{ month_idx + 1 }}"
+                    data-year="{{ year }}"
+                    placeholder="-">
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="13" class="text-center">
+                            No departments found. <a href="{{ url_for('manage_departments') }}">Add departments</a> or upload an Excel file.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Legend -->
+    <div class="alert alert-info mt-3">
+        <strong>Instructions:</strong>
+        <ul class="mb-0">
+            <li><strong>Next Index Number:</strong> Displayed at the top - this is the global next index to use across all departments (calculated from maximum index across all departments and months)</li>
+            <li><strong>Department Progress Report:</strong> Shows which month each department has submitted attendance up to</li>
+            <li>Index numbers are sequential across all departments (e.g., if HR gets 200 for June, then HR gets 201 for May)</li>
+            <li>Red background indicates missing attendance submission</li>
+            <li>Enter index numbers (e.g., 1, 2, 170a) directly in the cells - they save automatically</li>
+            <li>The system handles alphanumeric indices (like 170a) by extracting the numeric part to calculate the next number</li>
+            <li>Use "Upload Excel" to bulk import departments and indices</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Floating Next Index (visible while scrolling) -->
+<div id="floating-next-index" style="display:none; position:fixed; right:20px; bottom:20px; z-index:1050;">
+    <div class="card bg-success text-white shadow" style="width:180px;">
+        <div class="card-body py-2 text-center">
+            <div style="font-size:0.85em;">Next Index</div>
+            <div id="floating-next-index-value" style="font-size:1.4em; font-weight:700;">{{ global_next_index }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="post" action="{{ url_for('upload_attendance_excel') }}" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Attendance Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Excel File</label>
+                        <input type="file" name="file" class="form-control-file" accept=".xlsx,.xls" required>
+                        <small class="form-text text-muted">
+                            Format: First column = Department names, Other columns = Months (Jan, Feb, Mar, etc.)
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Year</label>
+                        <input type="number" name="year" class="form-control" value="{{ year }}" min="2020" max="2030" required>
+                    </div>
+                    <div class="alert alert-warning">
+                        <strong>Excel Format:</strong><br>
+                        • Column A: Department names<br>
+                        • Columns B-M: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec<br>
+                        • Values: Index numbers (e.g., 1, 2, 170a)
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-save index values when changed
+document.querySelectorAll('.index-input').forEach(input => {
+    let timeoutId;
+    
+    input.addEventListener('input', function() {
+        clearTimeout(timeoutId);
+        const deptId = this.dataset.deptId;
+        const month = this.dataset.month;
+        const year = this.dataset.year;
+        const value = this.value.trim();
+        
+    // Change class to indicate saving
+    this.classList.remove('saved', 'error');
+    this.classList.add('saving');
+        
+        timeoutId = setTimeout(() => {
+            // Check for duplicate numeric prefix in other inputs (e.g., '134' in '134a')
+            try {
+                const val = value;
+                const m = String(val).match(/^(\d+)/);
+                if (m && m[1]) {
+                    const num = m[1];
+                    // collect month names from table header (skip first col)
+                    const ths = Array.from(document.querySelectorAll('table thead th')).slice(1);
+                    const monthsNames = ths.map(t => t.textContent.trim());
+
+                    const other = Array.from(document.querySelectorAll('.index-input')).find(el => {
+                        if (el === this) return false;
+                        const ov = (el.value || '').trim();
+                        if (!ov) return false;
+                        const om = String(ov).match(/^(\d+)/);
+                        return om && om[1] === num;
+                    });
+
+                    if (other) {
+                        const deptCell = other.closest('tr').querySelector('td');
+                        const deptName = deptCell ? (deptCell.textContent || deptCell.innerText || '').trim() : 'Another department';
+                        const monthIdx = parseInt(other.dataset.month, 10) || 0;
+                        const monthName = monthsNames[monthIdx - 1] || (`Month ${monthIdx}`);
+                        const proceed = confirm(`Warning: numeric index "${num}" is already used by ${deptName} (${monthName}).\nSaving duplicate numeric indices may break tracking.\n\nDo you want to continue saving this value?`);
+                        if (!proceed) {
+                            // mark as error and abort save
+                            this.classList.remove('saving');
+                            this.classList.add('error');
+                            return;
+                        } else {
+                            // optional visual highlight for both
+                            this.classList.add('duplicate');
+                            other.classList.add('duplicate');
+                            setTimeout(() => { this.classList.remove('duplicate'); other.classList.remove('duplicate'); }, 2000);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Duplicate check failed:', err);
+            }
+
+            fetch('{{ url_for("update_attendance_index") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `dept_id=${deptId}&year=${year}&month=${month}&index_value=${encodeURIComponent(value)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update Next Index display if backend returned it
+                    if (data.next_index !== undefined && data.next_index !== null) {
+                        const el = document.getElementById('global-next-index');
+                        if (el) el.textContent = data.next_index;
+                        const floatEl = document.getElementById('floating-next-index-value');
+                        if (floatEl) floatEl.textContent = data.next_index;
+                        // show floating widget when next index is present
+                        const floatWrap = document.getElementById('floating-next-index');
+                        if (floatWrap) floatWrap.style.display = 'block';
+                    }
+
+                    // If backend returned updated dept progress for this department, update the UI
+                    if (data.dept_progress_update) {
+                        const dp = data.dept_progress_update;
+                        // Find the option in dept-progress-select corresponding to this dept (we used loop.index0 as option value)
+                        // Since we don't have a direct mapping from dept_id to option index, try finding option with matching text or data attribute
+                        const select = document.getElementById('dept-progress-select');
+                        if (select) {
+                            // Try to locate by comparing option data attributes if available
+                            let found = null;
+                            for (let i = 0; i < select.options.length; i++) {
+                                const opt = select.options[i];
+                                // The template sets data-month-num attribute but not dept_id. Try matching by option text containing dept name may not be reliable.
+                                // As a best-effort, if option has data-month-num and the option index corresponds to dept_progress array ordering, update it if option value equals dp.dept_id (string/number)
+                                if (opt.value == dp.dept_id) {
+                                    found = opt;
+                                    break;
+                                }
+                                // Fallback: if option has a data-dept-id attribute (not currently present), match that
+                                if (opt.getAttribute('data-dept-id') == dp.dept_id) {
+                                    found = opt;
+                                    break;
+                                }
+                            }
+
+                            // If not found by value, try matching by visible text startsWith dept name if provided
+                            if (!found && dp.latest_month && dp.latest_month !== 'No submissions') {
+                                // nothing to do
+                            }
+
+                            // If we located the option, update its data-month-num attribute and, if selected, update the badge
+                            if (found) {
+                                found.setAttribute('data-month-num', dp.latest_month_num || '0');
+                                // If this option is currently selected, update the displayed badge
+                                if (select.selectedIndex === found.index) {
+                                    const display = document.getElementById('dept-progress-display');
+                                    if (display) {
+                                        display.innerHTML = '';
+                                        const span = document.createElement('span');
+                                        if (!dp.latest_month_num || dp.latest_month_num <= 0) {
+                                            span.className = 'badge bg-warning text-dark';
+                                            span.textContent = 'No submissions';
+                                        } else {
+                                            span.className = 'badge bg-success text-white';
+                                            span.textContent = dp.latest_month || '';
+                                        }
+                                        display.appendChild(span);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Toggle classes based on whether value exists
+                    this.classList.remove('saving', 'error');
+                    if (value) {
+                        this.classList.remove('missing-index');
+                        this.classList.add('saved');
+                    } else {
+                        this.classList.add('missing-index');
+                        this.classList.remove('saved');
+                    }
+
+                    // Reset saved state after 1 second
+                    setTimeout(() => {
+                        this.classList.remove('saved');
+                    }, 1000);
+                } else {
+                    this.classList.remove('saving', 'saved');
+                    this.classList.add('error');
+                    alert('Error saving: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                this.classList.remove('saving', 'saved');
+                this.classList.add('error');
+                console.error('Error:', error);
+            });
+        }, 500); // Wait 500ms after last keystroke
+    });
+});
+</script>
+<script>
+// Department progress selector logic (separate script block)
+(function() {
+    const select = document.getElementById('dept-progress-select');
+    const display = document.getElementById('dept-progress-display');
+    const months = (select && select.dataset && select.dataset.months) ? select.dataset.months.split(',') : [];
+    if (!select || !display) return;
+
+    function renderBadge(monthNum) {
+        display.innerHTML = '';
+        if (!monthNum || monthNum <= 0) {
+            const span = document.createElement('span');
+            span.className = 'badge bg-warning text-dark';
+            span.textContent = 'No submissions';
+            display.appendChild(span);
+            return;
+        }
+        const m = months[monthNum - 1] || 'Unknown';
+        const span = document.createElement('span');
+        span.className = 'badge bg-success text-white';
+        span.textContent = m;
+        display.appendChild(span);
+    }
+
+    select.addEventListener('change', function() {
+        const selected = select.selectedOptions[0];
+        const monthNum = parseInt(selected.getAttribute('data-month-num') || '0', 10);
+        renderBadge(monthNum);
+    });
+
+    // Optionally preselect first department
+    if (select.options.length > 1) {
+        // skip the disabled placeholder option
+        select.selectedIndex = 1;
+        const evt = new Event('change');
+        select.dispatchEvent(evt);
+    }
+})();
+</script>
+<style>
+/* Visual highlight for duplicate index warnings */
+.index-input.duplicate {
+    box-shadow: 0 0 6px rgba(255, 165, 0, 0.9);
+    border-color: #ff9800;
+}
+.index-input.error {
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.9);
+    border-color: #dc3545;
+}
+</style>
+<script>
+// Show floating Next Index if the attendance grid is scrollable (or always show as convenience)
+document.addEventListener('DOMContentLoaded', function() {
+    const tableWrap = document.querySelector('.table-responsive');
+    const floatWrap = document.getElementById('floating-next-index');
+    if (!floatWrap) return;
+
+    // Show floating widget if the table has vertical scroll or always show
+    const shouldShow = tableWrap && tableWrap.scrollHeight > tableWrap.clientHeight;
+    if (shouldShow) floatWrap.style.display = 'block';
+
+    // Optionally hide when near top, show when user scrolls down
+    if (tableWrap) {
+        tableWrap.addEventListener('scroll', function() {
+            if (tableWrap.scrollTop > 50) {
+                floatWrap.style.display = 'block';
+            } else {
+                // keep it visible even near top if user prefers; for now hide when at very top
+                floatWrap.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}Leave Summary - Leave Management{% endblock %}
+
+{% block content %}
+<h2>Leave Summary</h2>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Generate Summary</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="emp_no" class="form-label">Employee Number</label>
+                        <input type="text" class="form-control" id="emp_no" name="emp_no" 
+                               value="{{ emp_no or '' }}" {% if not session.is_admin %}readonly{% endif %}>
+                    </div>
+                    <div class="mb-3">
+                        <label for="as_on_date" class="form-label">As on Date</label>
+                        <input type="date" class="form-control" id="as_on_date" name="as_on_date" 
+                               value="{{ as_on_date.strftime('%Y-%m-%d') if as_on_date else '' }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Generate Summary</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if summary %}
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Leave Summary for {{ summary.emp_name }} ({{ summary.emp_no }})</h5>
+                <small class="text-muted">As on {{ summary.as_on_date }} | DOJ: {{ summary.doj }} | Status: <strong>{{ summary.emp_status }}</strong></small>
+            </div>
+            <div class="card-body">
+
+                <!-- Opening Balances - Single Row -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6 class="text-primary">Opening Balances</h6>
+                        <div class="balance-row p-3 bg-light rounded">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">PL</div>
+                                        <div class="balance-value">
+                                            {% if summary.opening_balances.pl_part > 0 %}
+                                                {{ summary.opening_balances.pl }} + {{ summary.opening_balances.pl_part }}/11
+                                            {% else %}
+                                                {{ summary.opening_balances.pl }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">{{ summary.opening_balances.cl_label }}</div>
+                                        <div class="balance-value">{{ summary.opening_balances.cl }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">SL</div>
+                                        <div class="balance-value">{{ summary.opening_balances.sl }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">RH</div>
+                                        <div class="balance-value">{{ summary.opening_balances.rh }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Used & Accrual - Single Row -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-warning">Used Balances</h6>
+                                <div class="balance-row p-3 bg-warning-light rounded">
+                                    <div class="row text-center">
+                                        <div class="col-3">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">PL</div>
+                                                <div class="balance-value-small">{{ summary.used_balances.pl }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">CL</div>
+                                                <div class="balance-value-small">{{ summary.used_balances.cl }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">SL</div>
+                                                <div class="balance-value-small">{{ summary.used_balances.sl }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">RH</div>
+                                                <div class="balance-value-small">{{ summary.used_balances.rh }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-info">Accruals & Others</h6>
+                                <div class="balance-row p-3 bg-info-light rounded">
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">PL Accrual (Retro)</div>
+                                                <div class="balance-value-small">
+                                                    {% if summary.other_details.accrued_pl_part > 0 %}
+                                                        {{ summary.other_details.accrued_pl_full }} + {{ summary.other_details.accrued_pl_part }}/11
+                                                    {% else %}
+                                                        {{ summary.other_details.accrued_pl_full }}
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">LOP</div>
+                                                <div class="balance-value-small">{{ summary.other_details.lop_days }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% if summary.other_details.mat_leave > 0 or summary.other_details.encashments > 0 %}
+                                    <div class="row text-center mt-2">
+                                        <div class="col-6">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">Maternity</div>
+                                                <div class="balance-value-small">{{ summary.other_details.mat_leave }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="balance-item-small">
+                                                <div class="balance-label-small">Encashment</div>
+                                                <div class="balance-value-small">{{ summary.other_details.encashments }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Closing Balances - Single Row -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-success">Closing Balances</h6>
+                        <div class="balance-row p-3 bg-success-light rounded">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">PL</div>
+                                        <div class="balance-value">
+                                            {% if summary.closing_balances.pl_part > 0 %}
+                                                {{ summary.closing_balances.pl }} + {{ summary.closing_balances.pl_part }}/11
+                                            {% else %}
+                                                {{ summary.closing_balances.pl }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">CL</div>
+                                        <div class="balance-value">{{ summary.closing_balances.cl }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">SL</div>
+                                        <div class="balance-value">{{ summary.closing_balances.sl }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="balance-item">
+                                        <div class="balance-label">RH</div>
+                                        <div class="balance-value">{{ summary.closing_balances.rh }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Leave Details Table - Separate Card -->
+        {% if summary.leave_details %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-list"></i> Leave Details ({{ summary.leave_details|length }} entries) - Date Wise Ascending Order</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 8%;">Sl.No</th>
+                                <th style="width: 12%;">From</th>
+                                <th style="width: 12%;">To</th>
+                                <th style="width: 10%;">Session</th>
+                                <th style="width: 15%;">Type</th>
+                                <th style="width: 10%;">SL Type</th>
+                                <th style="width: 8%;">Days</th>
+                                <th style="width: 25%;">Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for leave in summary.leave_details %}
+                            <tr>
+                                <td class="text-center"><strong>{{ leave.sl_no }}</strong></td>
+                                <td>{{ leave.lv_from }}</td>
+                                <td>{{ leave.lv_to or '-' }}</td>
+                                <td class="text-center">{{ leave.session or '-' }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if leave.type == 'PL' %}bg-primary
+                                        {% elif leave.type == 'CL' %}bg-success
+                                        {% elif leave.type in ['SL_FP', 'SL_HP', 'S'] %}bg-warning text-dark
+                                        {% elif leave.type == 'L' %}bg-danger
+                                        {% elif leave.type == 'M' %}bg-info
+                                        {% elif leave.type == 'E' %}bg-secondary
+                                        {% elif leave.type == 'RH' %}bg-dark
+                                        {% else %}bg-light text-dark{% endif %}">
+                                        {{ leave.type }}
+                                    </span>
+                                </td>
+                                <td class="text-center">{{ leave.sl_type or '-' }}</td>
+                                <td class="text-center"><strong>{{ leave.days }}</strong></td>
+                                <td>{{ leave.reason or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary Footer -->
+                <div class="mt-3 p-2 bg-light rounded">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <small class="text-muted">Total PL Used: <strong>{{ summary.used_balances.pl }}</strong></small>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Total CL Used: <strong>{{ summary.used_balances.cl }}</strong></small>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Total SL Used: <strong>{{ summary.used_balances.sl }}</strong></small>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Total RH Used: <strong>{{ summary.used_balances.rh }}</strong></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                <h6 class="text-muted">No leave entries found for this employee</h6>
+                <p class="text-muted">Employee has not taken any leave up to the specified date.</p>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* Enhanced table styling for better readability */
+.table th {
+    background-color: #343a40 !important;
+    color: white !important;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.table td {
+    vertical-align: middle;
+    font-size: 0.85rem;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,.075);
+}
+
+/* Badge styling for leave types */
+.badge {
+    font-size: 0.75em;
+    padding: 0.4em 0.6em;
+    font-weight: 600;
+}
+
+/* Balance display improvements */
+.balance-row {
+    border: 1px solid #dee2e6;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.bg-warning-light {
+    background-color: #fff3cd !important;
+    border-color: #ffeaa7 !important;
+}
+
+.bg-info-light {
+    background-color: #d1ecf1 !important;
+    border-color: #b6d7e2 !important;
+}
+
+.bg-success-light {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+}
+
+.balance-item {
+    padding: 10px;
+}
+
+.balance-item-small {
+    padding: 5px;
+}
+
+.balance-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.balance-label-small {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 3px;
+}
+
+.balance-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.balance-value-small {
+    font-size: 14px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.card-header h6 {
+    margin-bottom: 0;
+    color: #495057;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .balance-value {
+        font-size: 16px;
+    }
+
+    .balance-value-small {
+        font-size: 12px;
+    }
+
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+
+    .col-md-3 {
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}

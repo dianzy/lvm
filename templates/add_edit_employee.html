@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if employee %}Edit Employee{% else %}Add Employee{% endif %} - Leave Management
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>
+            {% if employee %}Edit Employee - {{ employee.emp_no }}{% else %}Add New Employee{% endif %}
+        </h2>
+    </div>
+</div>
+
+<!-- Employee Form -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Employee Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <!-- Basic Information -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="emp_no" class="form-label">Employee Number *</label>
+                                <input type="text" class="form-control" id="emp_no" name="emp_no" 
+                                       value="{{ employee.emp_no if employee else '' }}" 
+                                       {% if employee %}readonly{% endif %} required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ employee.name if employee else '' }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="doj" class="form-label">Date of Joining *</label>
+                                <input type="date" class="form-control" id="doj" name="doj" 
+                                       value="{{ employee.doj.strftime('%Y-%m-%d') if employee else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="emp_status" class="form-label">Employee Status</label>
+                                <select class="form-select" id="emp_status" name="emp_status">
+                                    {% if employee %}
+                                        {% set current_status = employee.get_emp_status() %}
+                                    {% else %}
+                                        {% set current_status = 'C' %}
+                                    {% endif %}
+                                    <option value="P" {% if current_status == 'P' %}selected{% endif %}>Probationer</option>
+                                    <option value="C" {% if current_status == 'C' %}selected{% endif %}>Confirmed</option>
+                                    <option value="R" {% if current_status == 'R' %}selected{% endif %}>Retired</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Opening Balances -->
+                    <h6 class="mb-3">Opening Leave Balances</h6>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="pl" class="form-label">Privilege Leave (PL)</label>
+                                <input type="number" class="form-control" id="pl" name="pl" 
+                                       value="{{ employee.pl if employee else '0' }}" 
+                                       min="0" max="300" step="1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="partial_pl_days" class="form-label">Partial PL Days</label>
+                                <input type="number" class="form-control" id="partial_pl_days" name="partial_pl_days" 
+                                       value="{{ employee.partial_pl_days if employee else '0' }}" 
+                                       min="0" max="10" step="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="cl" class="form-label">Casual Leave (CL)</label>
+                                <input type="number" class="form-control" id="cl" name="cl" 
+                                       value="{{ employee.cl if employee else '0' }}" 
+                                       min="0" max="12" step="0.5">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="sl" class="form-label">Sick Leave (SL)</label>
+                                <input type="number" class="form-control" id="sl" name="sl" 
+                                       value="{{ employee.sl if employee else '0' }}" 
+                                       min="0" step="0.5">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="rh" class="form-label">Restricted Holiday (RH)</label>
+                                <input type="number" class="form-control" id="rh" name="rh" 
+                                       value="{{ employee.rh if employee else '0' }}" 
+                                       min="0" max="2" step="0.5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="lop" class="form-label">Cumulative LOP</label>
+                                <input type="number" class="form-control" id="lop" name="lop" 
+                                       value="{{ employee.lop if employee and employee.lop is not none else '0' }}" 
+                                       min="0" step="0.5">
+                                <small class="form-text text-muted">Total Loss of Pay days accumulated</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('master_data_management') }}" class="btn btn-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if employee %}Update Employee{% else %}Add Employee{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

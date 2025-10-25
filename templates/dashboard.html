@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Leave Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+        <p class="text-muted">Welcome to the Leave Management System</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-6 col-lg-4">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h3 class="mb-1">{{ total_employees }}</h3>
+                        <p class="mb-0">Total Employees</p>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h3 class="mb-1">{{ total_leave_entries }}</h3>
+                        <p class="mb-0">Leave Entries</p>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-calendar-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 col-lg-4">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h6 class="mb-1">Current Date</h6>
+                        <p class="mb-0">{{ date.today().strftime('%d-%m-%Y') }}</p>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-calendar fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <!-- Reports Section -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Reports & Analytics</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('summary') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-user-chart"></i> Individual Leave Summary
+                    </a>
+                    <a href="{{ url_for('bulk_summary') }}" class="btn btn-outline-info">
+                        <i class="fas fa-users-chart"></i> Bulk Leave Reports
+                    </a>
+                    <a href="{{ url_for('deduction_report') }}" class="btn btn-outline-warning">
+                        <i class="fas fa-calculator"></i> LOP/SL_HP Deduction Report
+                        <small class="d-block text-muted">For salary processing</small>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Section -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bolt"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('entry') }}" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Add Leave Entry
+                    </a>
+
+                    {% if session.is_admin %}
+                    <hr>
+                    <h6 class="text-muted mb-2">Admin Functions</h6>
+                    <a href="{{ url_for('upload') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-upload"></i> Upload Data
+                    </a>
+                    <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-users-cog"></i> User Management
+                    </a>
+                    <a href="{{ url_for('export_excel') }}" class="btn btn-outline-success">
+                        <i class="fas fa-file-excel"></i> Export Master Data
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity / Instructions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> System Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-star text-warning"></i> New Features</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Entry-order LOP/SL_HP deduction reports</li>
+                            <li><i class="fas fa-check text-success"></i> Enhanced employee lookup (handles .0 formats)</li>
+                            <li><i class="fas fa-check text-success"></i> Employee name dropdown autocomplete</li>
+                            <li><i class="fas fa-check text-success"></i> Detailed bulk PDF reports</li>
+                            <li><i class="fas fa-check text-success"></i> Professional navigation with Reports menu</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-lightbulb text-primary"></i> Quick Tips</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-arrow-right text-primary"></i> Use Reports → LOP/SL_HP for salary deductions</li>
+                            <li><i class="fas fa-arrow-right text-primary"></i> Employee search supports name or number</li>
+                            <li><i class="fas fa-arrow-right text-primary"></i> All reports maintain entry order</li>
+                            <li><i class="fas fa-arrow-right text-primary"></i> Export to Excel for detailed analysis</li>
+                            <li><i class="fas fa-arrow-right text-primary"></i> System handles CSV imports automatically</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn {
+    transition: all 0.2s;
+}
+
+.list-unstyled li {
+    margin-bottom: 0.5rem;
+}
+</style>
+
+<script>
+// Add some nice hover effects and animations
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate numbers on cards
+    const numberElements = document.querySelectorAll('.card h3');
+    numberElements.forEach(function(element) {
+        const finalNumber = parseInt(element.textContent);
+        let currentNumber = 0;
+        const increment = Math.ceil(finalNumber / 50);
+
+        const timer = setInterval(function() {
+            currentNumber += increment;
+            if (currentNumber >= finalNumber) {
+                currentNumber = finalNumber;
+                clearInterval(timer);
+            }
+            element.textContent = currentNumber;
+        }, 30);
+    });
+});
+</script>
+{% endblock %}

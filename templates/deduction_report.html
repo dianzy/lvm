@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}LOP/SL_HP Deduction Report - Leave Management{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-calculator"></i> LOP/SL_HP Deduction Report</h2>
+<p class="text-muted">Salary deduction report for payroll processing - maintains entry order</p>
+
+<!-- Input Form -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h6><i class="fas fa-filter"></i> Report Parameters</h6>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label for="year" class="form-label">Year</label>
+                    <select class="form-select" id="year" name="year">
+                        {% for y in range(2020, 2030) %}
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="as_on_date" class="form-label">As on Date</label>
+                    <input type="date" class="form-control" id="as_on_date" name="as_on_date" 
+                           value="{{ as_on_date.strftime('%Y-%m-%d') if as_on_date else date.today().strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if all_deduction_entries is defined %}
+<!-- Report Header -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="mb-0">
+                    <i class="fas fa-file-alt"></i> 
+                    Deduction Report: {{ start_date.strftime('%d-%m-%Y') }} to {{ as_on_date.strftime('%d-%m-%Y') }}
+                </h6>
+                <small class="text-muted">
+                    Total entries: {{ all_deduction_entries|length }} | 
+                    LOP: {{ lop_entries|length }} | 
+                    SL_HP: {{ sl_hp_entries|length }}
+                    {% if missing_employees %}
+                    | <span class="text-warning">{{ missing_employees|length }} employees excluded (no master data)</span>
+                    {% endif %}
+                </small>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{{ url_for('export_deduction_excel', as_on_date=as_on_date.strftime('%Y-%m-%d'), year=year) }}" 
+                   class="btn btn-success btn-sm">
+                    <i class="fas fa-file-excel"></i> Export Excel
+                </a>
+                <button onclick="window.print()" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if missing_employees %}
+<!-- Missing Employees Warning -->
+<div class="alert alert-warning">
+    <h6><i class="fas fa-exclamation-triangle"></i> Missing Master Data Warning</h6>
+    <p class="mb-2">The following employees have LOP/SL_HP entries but are not found in master data:</p>
+    <div class="d-flex flex-wrap gap-1">
+        {% for emp in missing_employees %}
+        <span class="badge bg-warning text-dark">{{ emp|string|replace('.0', '') }}</span>
+        {% endfor %}
+    </div>
+    <small class="text-muted mt-1 d-block">
+        These entries were excluded from the report. Please add these employees to master data or verify employee numbers.
+    </small>
+</div>
+{% endif %}
+
+{% if all_deduction_entries %}
+<!-- Summary Cards -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ lop_entries|length }}</h3>
+                <small>LOP Entries</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ sl_hp_entries|length }}</h3>
+                <small>SL Half Pay Entries</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ (lop_entries|map(attribute='days')|sum + sl_hp_entries|map(attribute='days')|sum)|round(1) }}</h3>
+                <small>Total Deduction Days</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Deduction Entries Table (Entry Order) -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="mb-0"><i class="fas fa-list-ol"></i> All Deduction Entries (Entry Order)</h6>
+                <small class="text-muted">Complete list in order of entry - for payroll processing</small>
+            </div>
+            <div>
+                <form method="POST" action="{{ url_for('mark_entries_entered') }}" class="d-flex align-items-center gap-2" onsubmit="return confirmMarkEntries()">
+                    <input type="hidden" name="as_on_date" value="{{ as_on_date.strftime('%Y-%m-%d') if as_on_date else '' }}">
+                    <input type="hidden" name="year" value="{{ year }}">
+                    <label for="entry_select" class="mb-0 text-nowrap" style="font-size: 0.9rem;">Mark up to S.No:</label>
+                    <select name="entry_id" id="entry_select" class="form-select form-select-sm" style="width: 100px;" required>
+                        <option value="">Select</option>
+                        {% for entry in all_deduction_entries %}
+                        <option value="{{ entry.id }}">{{ loop.index }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="fas fa-check"></i> Mark as Entered
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 10%;">S.No</th>
+                        <th style="width: 12%;">Emp No</th>
+                        <th style="width: 20%;">Name</th>
+                        <th style="width: 12%;">From</th>
+                        <th style="width: 12%;">To</th>
+                        <th style="width: 8%;" class="text-center">Days</th>
+                        <th style="width: 10%;" class="text-center">Type</th>
+                        <th style="width: 16%;">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in all_deduction_entries %}
+                    <tr class="{% if entry.is_entered %}table-success{% endif %}">
+                        <td>
+                            <strong>{{ loop.index }}</strong>
+                            {% if entry.is_entered %}
+                            <i class="fas fa-check-circle text-success ms-1" title="Entry marked as entered"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.emp_no|string|replace('.0', '') }}</td>
+                        <td>{{ entry.emp_name }}</td>
+                        <td>{{ entry.from }}</td>
+                        <td>{{ entry.to or entry.from }}</td>
+                        <td class="text-center">{{ entry.days }}</td>
+                        <td class="text-center">
+                            <span class="badge {% if entry.type == 'LOP' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                {{ entry.type }}
+                            </span>
+                        </td>
+                        <td><small>{{ entry.reason or '-' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Separate LOP Table -->
+{% if lop_entries %}
+<div class="card mb-4">
+    <div class="card-header bg-danger text-white">
+        <h6 class="mb-0"><i class="fas fa-exclamation-circle"></i> LOP (Loss of Pay) Entries - {{ lop_entries|length }} entries</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 8%;">S.No</th>
+                        <th style="width: 15%;">Emp No</th>
+                        <th style="width: 25%;">Name</th>
+                        <th style="width: 15%;">From</th>
+                        <th style="width: 15%;">To</th>
+                        <th style="width: 10%;" class="text-center">Days</th>
+                        <th style="width: 22%;">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in lop_entries %}
+                    <tr class="{% if entry.is_entered %}table-success{% endif %}">
+                        <td>
+                            <strong>{{ loop.index }}</strong>
+                            {% if entry.is_entered %}
+                            <i class="fas fa-check-circle text-success ms-1" title="Entered"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.emp_no|string|replace('.0', '') }}</td>
+                        <td>{{ entry.emp_name }}</td>
+                        <td>{{ entry.from }}</td>
+                        <td>{{ entry.to or entry.from }}</td>
+                        <td class="text-center"><strong>{{ entry.days }}</strong></td>
+                        <td><small>{{ entry.reason or '-' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td colspan="5" class="text-end"><strong>Total LOP Days:</strong></td>
+                        <td class="text-center"><strong>{{ lop_entries|map(attribute='days')|sum|round(1) }}</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Separate SL Half Pay Table -->
+{% if sl_hp_entries %}
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h6 class="mb-0"><i class="fas fa-user-clock"></i> SL Half Pay Entries - {{ sl_hp_entries|length }} entries</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 8%;">S.No</th>
+                        <th style="width: 15%;">Emp No</th>
+                        <th style="width: 25%;">Name</th>
+                        <th style="width: 15%;">From</th>
+                        <th style="width: 15%;">To</th>
+                        <th style="width: 10%;" class="text-center">Days</th>
+                        <th style="width: 22%;">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in sl_hp_entries %}
+                    <tr class="{% if entry.is_entered %}table-success{% endif %}">
+                        <td>
+                            <strong>{{ loop.index }}</strong>
+                            {% if entry.is_entered %}
+                            <i class="fas fa-check-circle text-success ms-1" title="Entered"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ entry.emp_no|string|replace('.0', '') }}</td>
+                        <td>{{ entry.emp_name }}</td>
+                        <td>{{ entry.from }}</td>
+                        <td>{{ entry.to or entry.from }}</td>
+                        <td class="text-center"><strong>{{ entry.days }}</strong></td>
+                        <td><small>{{ entry.reason or '-' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td colspan="5" class="text-end"><strong>Total SL_HP Days:</strong></td>
+                        <td class="text-center"><strong>{{ sl_hp_entries|map(attribute='days')|sum|round(1) }}</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- No Deduction Entries -->
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+        <h5>No Salary Deductions</h5>
+        <p class="text-muted">No LOP or SL Half Pay entries found for the selected period.</p>
+        <small class="text-muted">Period: {{ start_date.strftime('%d-%m-%Y') }} to {{ as_on_date.strftime('%d-%m-%Y') }}</small>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Initial State -->
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-calculator fa-3x text-muted mb-3"></i>
+        <h5>Generate LOP/SL_HP Deduction Report</h5>
+        <p class="text-muted">Select year and date above to generate the salary deduction report for payroll processing.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-update year based on date selection
+document.getElementById('as_on_date').addEventListener('change', function() {
+    const selectedDate = new Date(this.value);
+    const year = selectedDate.getFullYear();
+
+    const yearSelect = document.getElementById('year');
+    // Check if the year exists in options
+    for (let option of yearSelect.options) {
+        if (parseInt(option.value) === year) {
+            yearSelect.value = year;
+            break;
+        }
+    }
+});
+
+// Confirm before marking entries as entered
+function confirmMarkEntries() {
+    const select = document.getElementById('entry_select');
+    const selectedSNo = select.options[select.selectedIndex].text;
+    
+    if (!selectedSNo || selectedSNo === 'Select') {
+        alert('Please select an entry number');
+        return false;
+    }
+    
+    return confirm(`Are you sure you want to mark all entries from 1 to ${selectedSNo} as entered?\n\nThis will mark ${selectedSNo} entries as processed.`);
+}
+</script>
+
+<style>
+@media print {
+    .btn, .card:first-child, .alert {
+        display: none !important;
+    }
+
+    .table th, .table td {
+        border: 1px solid #000 !important;
+        font-size: 10px !important;
+    }
+}
+
+.table th {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.table td {
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.75rem;
+    }
+}
+</style>
+{% endblock %}
